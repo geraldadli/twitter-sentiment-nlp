@@ -496,7 +496,7 @@ with tab_batch:
                 return colours.get(val, "")
 
             st.dataframe(
-                df.style.applymap(colour_sentiment, subset=["Sentiment"]),
+                df.style.map(colour_sentiment, subset=["Sentiment"]),
                 use_container_width=True,
                 height=min(60 + len(df) * 38, 480),
             )
