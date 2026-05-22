@@ -390,16 +390,10 @@ with tab_single:
     with col_input:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="section-label">Enter financial tweet</div>', unsafe_allow_html=True)
-        tweet_input = st.text_area(
-            label="tweet_text",
-            label_visibility="collapsed",
-            placeholder="e.g.  $AAPL beats Q3 earnings estimates, revenue surges 12% YoY 📈",
-            height=140,
-            key="single_input",
-        )
 
-        # Quick-fill examples
-        st.markdown('<div class="section-label" style="margin-top:1rem;">Try an example</div>', unsafe_allow_html=True)
+        # Quick-fill examples — must render BEFORE the text_area so the
+        # backing key is set before value= is evaluated on this run.
+        st.markdown('<div class="section-label" style="margin-top:0rem;margin-bottom:0.4rem;">Try an example</div>', unsafe_allow_html=True)
         ex_col1, ex_col2, ex_col3 = st.columns(3)
         examples = {
             "▲ Bullish": "$NVDA smashes earnings — revenue up 122%, beats on all metrics",
@@ -409,15 +403,25 @@ with tab_single:
         for col, (lbl, ex_text) in zip([ex_col1, ex_col2, ex_col3], examples.items()):
             with col:
                 if st.button(lbl, key=f"ex_{lbl}", use_container_width=True):
-                    st.session_state["single_input"] = ex_text
-                    st.rerun()
+                    # Write to a SEPARATE backing key — never to the widget key itself
+                    st.session_state["_tweet_val"] = ex_text
+
+        # text_area reads from the backing key via value=; its own key is never mutated
+        tweet_input = st.text_area(
+            label="tweet_text",
+            label_visibility="collapsed",
+            placeholder="e.g.  $AAPL beats Q3 earnings estimates, revenue surges 12% YoY 📈",
+            height=140,
+            key="single_input",
+            value=st.session_state.get("_tweet_val", ""),
+        )
 
         st.markdown("</div>", unsafe_allow_html=True)
 
         analyse_btn = st.button("Analyse Tweet ›", type="primary", use_container_width=True, key="analyse_btn")
 
     with col_result:
-        text_to_analyse = st.session_state.get("single_input", "") or tweet_input
+        text_to_analyse = tweet_input
         if analyse_btn and text_to_analyse.strip():
             label, conf = predict_single(model, text_to_analyse)
             render_result(label, conf)
