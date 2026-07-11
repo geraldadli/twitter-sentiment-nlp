@@ -1,33 +1,3 @@
-# Sentiment-Driven Market Analysis: Twitter Financial News
-
-This repository contains a comprehensive pipeline for predicting market sentiment from financial tweets. The project benchmarks traditional statistical NLP models against modern Transformer-based architectures and introduces a hybrid inference approach for improved accuracy.
-
-## Project Overview
-
-The objective of this analysis is to classify financial tweets into three distinct sentiment categories:
-
-* **0**: Bearish
-* **1**: Bullish
-* **2**: Neutral
-
-The project utilizes the `zeroshot/twitter-financial-news-sentiment` dataset from the Hugging Face Hub, which consists of 9,543 training examples and 2,388 validation examples.
-
-## Key Features
-
-* **Pragmatic Preprocessing**: Text cleaning specialized for financial data, including emoji handling and tokenization.
-* **Exploratory Data Analysis (EDA)**: Visualizations of label distributions and token frequencies using Seaborn and WordClouds.
-* **Multi-Model Benchmarking**: Implementation and comparison of five distinct modeling strategies:
-1. **TF-IDF + Logistic Regression** (Baseline)
-2. **TF-IDF + Linear SVM**
-3. **DistilBERT-base-uncased (fine-tuned)**
-4. **FinBERT (fine-tuned)**
-5. **FinBERT + Pragmatic Gating (Hybrid)**
-
-* **Web Application**: The finalized model (`geraldadli/twitter-sentiment-nlp`) is integrated into a Streamlit web interface for single-tweet inferences and batch analysis.
-* **Evaluation & Error Analysis**: Comprehensive performance tracking using Accuracy, F1-Score, Precision, and Recall, supplemented by confusion matrices and pragmatic error analysis.
-
----
-
 ## 📊 Market Sentiment Analyser — Web Application
 
 ### App Name
