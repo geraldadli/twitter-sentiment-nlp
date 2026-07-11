@@ -6,6 +6,11 @@
 ### Description
 A web-based tool that classifies financial tweets into Bullish, Bearish, or Neutral sentiments in real time. The app is powered by a fine-tuned DistilBERT model hosted on Hugging Face Hub (`geraldadli/twitter-sentiment-nlp`) and provides instant sentiment predictions with confidence scores.
 
+An web application that automatically classifies financial tweets as 
+Bullish, Bearish, or Neutral using Transformer Models. 
+Helping investors and researchers
+track market sentiment in real time, without manual analysis.
+
 ### Main Features
 * **Single-Tweet Analysis**: Paste any financial tweet and get an instant sentiment prediction with confidence scores across all three classes, token count, and processing time.
 * **Batch Analysis**: Upload a CSV file containing multiple tweets for bulk sentiment classification with an aggregated sentiment distribution summary.
