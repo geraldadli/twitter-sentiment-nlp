@@ -18,9 +18,20 @@ MAX_LENGTH  = 64
 # LABEL_0/1/2 → human label  (matches training: 0=Bearish, 1=Bullish, 2=Neutral)
 ID2LABEL = {"0": "Bearish", "1": "Bullish", "2": "Neutral"}
 
-LABEL_COLOR = {"Bullish": "#A6E3A1", "Bearish": "#F38BA8", "Neutral": "#F9E2AF"}
-LABEL_BG    = {"Bullish": "rgba(166,227,161,0.12)", "Bearish": "rgba(243,139,168,0.12)", "Neutral": "rgba(249,226,175,0.12)"}
-LABEL_ICON  = {"Bullish": "▲", "Bearish": "▼", "Neutral": "◆"}
+# Display order follows the poster; each class keeps its color everywhere.
+CLASSES     = ["Bullish", "Bearish", "Neutral"]
+LABEL_COLOR = {"Bullish": "#1DAB8F", "Bearish": "#D23A3F", "Neutral": "#C78511"}
+LABEL_TEXT  = {"Bullish": "#5FD0B5", "Bearish": "#F07A7E", "Neutral": "#E6AA4A"}  # lighter tints for text
+LABEL_GLYPH = {"Bullish": "▲", "Bearish": "▼", "Neutral": "◆"}
+LABEL_ICON  = {"Bullish": "trend_up", "Bearish": "trend_down", "Neutral": "equal"}
+LABEL_MATERIAL = {"Bullish": ":material/trending_up:", "Bearish": ":material/trending_down:",
+                  "Neutral": ":material/equal:"}
+LABEL_DESC  = {"Bullish": "Rising market expectations", "Bearish": "Falling market expectations",
+               "Neutral": "Factual, no directional signal"}
+
+# Headline metrics of the deployed model (validation split)
+MACRO_F1 = 0.848
+ACCURACY = 0.884
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  PAGE SETUP
@@ -34,178 +45,212 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
+  :root {
+    --bg: #0F1D36; --bg-deep: #0B172C; --surface: #152845; --surface-2: #1B3254;
+    --line: #243F66; --line-2: #2E4E7A;
+    --ink: #E8F3FA; --ink-2: #A8BBD2; --ink-3: #8095B1;
+    --title: #BDE9F4; --teal: #22B294; --cyan: #45D2E6; --tile: #0E3549;
+    --display: 'Montserrat', sans-serif; --body: 'Inter', sans-serif;
+  }
+
+  /* ── App shell ── */
   html, body, [data-testid="stAppViewContainer"] {
-    background: #07090F; color: #CDD6F4;
-    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg); color: var(--ink); font-family: var(--body);
   }
   [data-testid="stAppViewContainer"] {
-    background:
-      radial-gradient(ellipse 70% 40% at 15% 0%,  rgba(137,180,250,.07) 0%, transparent 65%),
-      radial-gradient(ellipse 50% 35% at 85% 100%, rgba(166,227,161,.05) 0%, transparent 65%),
-      #07090F;
+    background: radial-gradient(ellipse 55% 45% at 85% 0%, rgba(69,210,230,.07), transparent 70%), var(--bg);
   }
   [data-testid="stHeader"] { background: transparent; }
+  [data-testid="stMainBlockContainer"], .block-container {
+    max-width: 1180px; padding-top: 2.2rem; padding-bottom: 4rem;
+  }
 
-  /* ── Typography ── */
+  /* ── Hero ── */
+  .hero { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; padding-bottom: 32px; }
   .eyebrow {
-    font-family: 'JetBrains Mono', monospace; font-size: .68rem;
-    letter-spacing: .22em; color: #89B4FA; text-transform: uppercase;
-    text-align: center; margin-bottom: .5rem;
+    font: 700 .9rem/1.2 var(--display); letter-spacing: .2em;
+    text-transform: uppercase; color: var(--teal);
   }
   .hero-title {
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-    font-size: clamp(2rem,5vw,3.2rem); line-height: 1.08;
-    letter-spacing: -.03em; color: #CDD6F4; text-align: center; margin: 0;
+    margin-top: 12px; font: 800 clamp(2.3rem, 4.6vw, 4.1rem)/1.04 var(--display);
+    letter-spacing: -.02em; color: var(--title);
   }
-  .hero-title .b { color: #89B4FA; }
-  .hero-title .g { color: #A6E3A1; }
-  .hero-sub {
-    font-family: 'JetBrains Mono', monospace; font-size: .72rem;
-    color: #313244; text-align: center; margin-top: .8rem;
-  }
-  .section-lbl {
-    font-family: 'JetBrains Mono', monospace; font-size: .64rem;
-    letter-spacing: .16em; color: #313244; text-transform: uppercase;
-    margin-bottom: .5rem;
-  }
+  .hero-title span { display: block; }
+  .candles { width: min(320px, 28vw); height: auto; }
+  .candle { transform-box: fill-box; transform-origin: 50% 50%;
+            animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rise { from { transform: scaleY(0); opacity: 0; } }
 
-  /* ── Model pill ── */
-  .pill {
-    display: inline-flex; align-items: center; gap: .45rem;
-    font-family: 'JetBrains Mono', monospace; font-size: .7rem;
-    background: rgba(137,180,250,.08); border: 1px solid rgba(137,180,250,.2);
-    border-radius: 100px; padding: .28rem .9rem; color: #89B4FA;
-    margin: .7rem auto 0; text-align: center;
+  /* ── Stats row ── */
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); margin-bottom: 32px;
   }
-  .dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #A6E3A1;
-    box-shadow: 0 0 6px #A6E3A1; animation: blink 2s ease-in-out infinite;
-  }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .stat { padding: 24px 24px 22px; }
+  .stat + .stat { border-left: 1px solid var(--line-2); }
+  .stat-value { font: 800 clamp(2rem, 4.2vw, 3.2rem)/1.05 var(--display); color: var(--title); }
+  .stat-label { margin-top: 10px; font: 700 .95rem/1.2 var(--display); letter-spacing: .14em; color: var(--teal); }
+  .stat-sub   { margin-top: 4px; font-size: .92rem; color: var(--ink-3); }
 
-  /* ── Card ── */
-  .card {
-    background: rgba(255,255,255,.028); border: 1px solid rgba(255,255,255,.07);
-    border-radius: 16px; padding: 1.6rem 1.8rem; margin-bottom: 1.1rem;
-    position: relative; overflow: hidden;
+  /* ── Tabs as poster "key feature" cards ── */
+  [data-testid="stTabs"] [role="tablist"] { gap: 16px; border: 0; box-shadow: none; }
+  [data-testid="stTab"] {
+    flex: 1; height: auto; justify-content: flex-start;
+    padding: 14px 18px; margin: 0; background: var(--surface);
+    border-top: 3px solid var(--line-2); border-radius: 2px 2px 8px 8px;
+    transition: background .15s, border-color .15s;
   }
-  .card::before {
-    content:''; position:absolute; inset:0;
-    background: linear-gradient(135deg,rgba(137,180,250,.03) 0%,transparent 60%);
-    pointer-events:none;
+  [data-testid="stTab"]:hover { background: var(--surface-2); }
+  [data-testid="stTab"][aria-selected="true"] { background: var(--surface-2); border-top-color: var(--title); }
+  [data-testid="stTab"] p {
+    display: flex; align-items: center; gap: 14px;
+    font: 700 1.1rem/1.25 var(--display) !important; color: var(--ink-2);
   }
+  [data-testid="stTab"][aria-selected="true"] p { color: var(--ink); }
+  [data-testid="stTab"] span[role="img"] {
+    display: grid !important; place-items: center; width: 48px; height: 48px; flex: none;
+    background: var(--tile); border-radius: 4px; color: var(--cyan); font-size: 26px; line-height: 1;
+  }
+  [data-testid="stTabs"] .react-aria-SelectionIndicator { display: none; }
+  [data-testid="stTabs"] [role="tabpanel"] { padding-top: 20px; }
 
-  /* ── Sentiment result ── */
+  /* ── Cards ── */
+  .card, .st-key-card_input, .st-key-card_batch {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px;
+  }
+  .card { margin-bottom: 16px; }
+  .card-title {
+    font: 700 .8rem/1.2 var(--display); letter-spacing: .16em;
+    text-transform: uppercase; color: var(--teal); margin-bottom: 14px;
+  }
+  .card-title.sub { margin-top: 22px; }
+  .muted { color: var(--ink-3); }
+
+  /* ── Inputs & buttons ── */
+  [data-testid="stTextAreaRootElement"] {
+    background: var(--bg-deep) !important; border: 1px solid var(--line) !important; border-radius: 8px;
+  }
+  [data-testid="stTextAreaRootElement"]:focus-within {
+    border-color: var(--cyan) !important; box-shadow: 0 0 0 3px rgba(69,210,230,.15);
+  }
+  [data-testid="stTextArea"] textarea {
+    background: transparent; color: var(--ink); font: 400 1rem/1.55 var(--body); caret-color: var(--cyan);
+  }
+  [data-testid="stTextArea"] textarea::placeholder { color: var(--ink-3); }
+
+  [data-testid="stBaseButton-primary"] {
+    background: var(--title); border: 1px solid var(--title); color: var(--bg-deep);
+    min-height: 44px; border-radius: 8px;
+  }
+  [data-testid="stBaseButton-primary"]:hover { background: #D6F4FB; border-color: #D6F4FB; color: var(--bg-deep); }
+  [data-testid="stBaseButton-primary"] p { font: 700 .95rem var(--display); }
+  [data-testid="stBaseButton-secondary"] {
+    background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 8px;
+  }
+  [data-testid="stBaseButton-secondary"]:hover { background: var(--surface-2); border-color: var(--line-2); color: var(--ink); }
+  [class*="st-key-ex_"] [data-testid="stBaseButton-secondary"] { border-radius: 999px; min-height: 36px; }
+  [class*="st-key-ex_"] p { font-size: .88rem; }
+  .st-key-ex_Bullish [data-testid="stIconMaterial"] { color: #1DAB8F; }
+  .st-key-ex_Bearish [data-testid="stIconMaterial"] { color: #D23A3F; }
+  .st-key-ex_Neutral [data-testid="stIconMaterial"] { color: #C78511; }
+  .examples-label { font-size: .82rem; color: var(--ink-3); margin-top: 2px; }
+
+  [data-testid="stExpander"] details { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  [data-testid="stExpander"] summary p { font-size: .88rem; color: var(--ink-2); }
+  [data-testid="stAlert"] { border-radius: 8px; }
+
+  /* ── Prediction ── */
+  .result-head { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+  .result-icon {
+    flex: none; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 8px;
+    color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  }
   .result-label {
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-    font-size: 2.8rem; letter-spacing: -.04em; line-height: 1; margin: .3rem 0;
+    font: 800 2.6rem/1 var(--display); letter-spacing: -.02em;
+    color: color-mix(in oklab, var(--c) 72%, white);
   }
-  .badge {
-    display: inline-flex; align-items: center; gap: .3rem;
-    font-family: 'JetBrains Mono', monospace; font-size: .7rem; font-weight: 600;
-    padding: .26rem .85rem; border-radius: 100px; text-transform: uppercase;
-    letter-spacing: .05em; margin-top: .5rem;
-  }
+  .result-conf { margin-top: 6px; color: var(--ink-2); }
+  .result-conf b { color: var(--ink); }
+  .result-head.is-empty { --c: #8095B1; }
+  .result-head.is-empty .result-label { color: var(--ink-3); }
 
-  /* ── Prob bars ── */
-  .prob-row  { margin-bottom: .8rem; }
-  .prob-head { display:flex; justify-content:space-between; margin-bottom:.25rem; }
-  .prob-name { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:#585B70;
-               letter-spacing:.1em; text-transform:uppercase; }
-  .prob-pct  { font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600; }
-  .prob-track { background:rgba(255,255,255,.05); border-radius:100px; height:7px; overflow:hidden; }
-  .prob-fill  { height:7px; border-radius:100px; transition:width .6s cubic-bezier(.4,0,.2,1); }
+  .probs { display: grid; gap: 14px; }
+  .prob-head { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: .92rem; }
+  .prob-name { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); }
+  .prob.is-top .prob-name { color: var(--ink); font-weight: 600; }
+  .prob-val  { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .prob-track { height: 10px; background: var(--bg-deep); border-radius: 0 4px 4px 0; overflow: hidden; }
+  .prob-fill  { height: 100%; background: var(--c); border-radius: 0 4px 4px 0; }
 
-  /* ── Token bar ── */
-  .token-row {
-    display:flex; align-items:center; gap:.7rem; margin-top:.65rem;
-    font-family:'JetBrains Mono',monospace; font-size:.68rem; color:#45475A;
-    background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06);
-    border-radius:8px; padding:.38rem .8rem;
-  }
-  .token-track { flex:1; height:4px; background:rgba(255,255,255,.07); border-radius:2px; }
-  .token-fill  { height:4px; border-radius:2px; }
-  .infer-ms    { font-family:'JetBrains Mono',monospace; font-size:.66rem;
-                 color:#313244; text-align:right; margin-top:.4rem; }
+  .meta { display: flex; gap: 32px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .meta span { display: block; font-size: .78rem; color: var(--ink-3); }
+  .meta b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .token-track { width: 110px; height: 5px; margin-top: 6px; background: var(--bg-deep); border-radius: 3px; overflow: hidden; }
+  .token-fill  { height: 100%; background: var(--cyan); border-radius: 0 3px 3px 0; }
 
-  /* ── Distribution bar ── */
-  .dist-bar { display:flex; height:9px; border-radius:100px; overflow:hidden; margin:.5rem 0 .6rem; }
-  .dist-lbl { font-family:'JetBrains Mono',monospace; font-size:.7rem; }
+  /* ── Batch summary ── */
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 2px; padding: 14px 16px;
+    background: var(--bg-deep); border: 1px solid var(--line); border-top: 3px solid var(--c);
+    border-radius: 2px 2px 8px 8px;
+  }
+  .tile-name  { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; color: var(--ink-2); }
+  .tile-value { font: 800 2rem/1.15 var(--display); color: var(--ink); }
+  .tile-sub   { font-size: .85rem; color: var(--ink-3); }
+  .dist { display: flex; gap: 2px; height: 14px; margin-top: 18px; }
+  .dist-seg { flex-basis: 0; min-width: 6px; }
+  .dist-seg:first-child { border-radius: 4px 0 0 4px; }
+  .dist-seg:last-child  { border-radius: 0 4px 4px 0; }
+  .dist-seg:only-child  { border-radius: 4px; }
+  [data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 
-  /* ── Inputs ── */
-  textarea, .stTextInput input {
-    background:rgba(255,255,255,.03) !important; border:1px solid rgba(255,255,255,.08) !important;
-    color:#CDD6F4 !important; border-radius:12px !important;
-    font-family:'JetBrains Mono',monospace !important; font-size:.87rem !important;
-    caret-color:#89B4FA;
+  /* ── Model info ── */
+  .model-name { font: 800 1.5rem/1.2 var(--display); color: var(--title); }
+  .hub-link { display: inline-block; margin-top: 6px; font-size: .9rem; color: var(--cyan) !important; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-top: 18px; }
+  .kv span { display: block; font-size: .8rem; color: var(--ink-3); }
+  .kv b { font-weight: 600; }
+  .labels { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .labels li {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0; padding: 11px 14px;
+    background: var(--bg-deep); border-left: 3px solid var(--c); border-radius: 2px 8px 8px 2px;
   }
-  textarea:focus, .stTextInput input:focus {
-    border-color:rgba(137,180,250,.45) !important;
-    box-shadow:0 0 0 3px rgba(137,180,250,.07) !important;
+  .label-id {
+    display: grid; place-items: center; width: 28px; height: 28px; border-radius: 4px;
+    background: var(--surface-2); font: 700 .85rem/1 monospace; color: var(--ink-2);
   }
+  .label-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+  .labels .muted { font-size: .88rem; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .steps li { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--ink-2); font-size: .93rem; }
+  .step-n {
+    flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--tile); border: 1px solid var(--line-2);
+    font: 800 .85rem/1 var(--display); color: var(--title);
+  }
+  .stack { display: flex; flex-wrap: wrap; gap: 12px; }
+  .stack span { padding: 10px 18px; border: 2px solid var(--title); font: 700 .95rem/1 var(--display); color: var(--ink); }
 
-  /* ── Buttons ── */
-  [data-testid="baseButton-primary"] {
-    background:linear-gradient(135deg,#89B4FA,#74C7EC) !important;
-    color:#07090F !important; font-family:'JetBrains Mono',monospace !important;
-    font-weight:600 !important; font-size:.82rem !important;
-    letter-spacing:.05em !important; border:none !important;
-    border-radius:10px !important; transition:opacity .15s,transform .1s !important;
+  /* ── Small screens ── */
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; }
+    .candles { display: none; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat { padding: 18px 12px 18px 0; }
+    .stat + .stat { padding-left: 14px; }
+    .stat:last-child { grid-column: span 2; padding-left: 0; border-left: 0; border-top: 1px solid var(--line-2); }
+    [data-testid="stTabs"] [role="tablist"] { gap: 8px; }
+    [data-testid="stTab"] { padding: 12px; }
+    [data-testid="stTab"] p { flex-direction: column; align-items: flex-start; gap: 8px; font-size: .9rem !important; white-space: normal; }
+    [data-testid="stTab"] span[role="img"] { width: 38px; height: 38px; font-size: 22px; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .result-label { font-size: 2.1rem; }
   }
-  [data-testid="baseButton-primary"]:hover { opacity:.88 !important; transform:translateY(-1px) !important; }
-  [data-testid="baseButton-secondary"] {
-    background:transparent !important; color:#45475A !important;
-    font-family:'JetBrains Mono',monospace !important; font-size:.76rem !important;
-    border:1px solid rgba(255,255,255,.08) !important; border-radius:10px !important;
-  }
-  [data-testid="baseButton-secondary"]:hover { color:#89B4FA !important; border-color:rgba(137,180,250,.3) !important; }
-
-  /* ── Tabs ── */
-  [data-testid="stTabs"] button {
-    font-family:'JetBrains Mono',monospace !important; font-size:.76rem !important;
-    color:#45475A !important; border-radius:8px 8px 0 0 !important;
-  }
-  [data-testid="stTabs"] button[aria-selected="true"] {
-    color:#89B4FA !important; border-bottom-color:#89B4FA !important;
-  }
-
-  /* ── Metrics ── */
-  [data-testid="stMetric"] {
-    background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06);
-    border-radius:12px; padding:.75rem 1rem;
-  }
-  [data-testid="stMetricLabel"] {
-    font-family:'JetBrains Mono',monospace !important; font-size:.64rem !important;
-    color:#45475A !important; text-transform:uppercase; letter-spacing:.1em;
-  }
-  [data-testid="stMetricValue"] {
-    font-family:'Space Grotesk',sans-serif !important; font-weight:700 !important;
-    font-size:1.5rem !important; color:#CDD6F4 !important;
-  }
-
-  /* ── Table ── */
-  [data-testid="stDataFrame"] { font-family:'JetBrains Mono',monospace !important; font-size:.8rem !important; }
-
-  /* ── Chip ── */
-  .chip {
-    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:.69rem;
-    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
-    border-radius:6px; padding:.12rem .48rem; color:#585B70;
-    margin-right:.3rem; margin-bottom:.3rem;
-  }
-
-  hr { border-color:rgba(255,255,255,.05) !important; margin:1.1rem 0 !important; }
-
-  .footer {
-    text-align:center; font-family:'JetBrains Mono',monospace;
-    font-size:.64rem; color:#1E2535; padding:2rem 0 1rem; letter-spacing:.08em;
-  }
-
-  ::-webkit-scrollbar { width:5px; }
-  ::-webkit-scrollbar-track { background:#07090F; }
-  ::-webkit-scrollbar-thumb { background:#1E2535; border-radius:3px; }
+  @media (prefers-reduced-motion: reduce) { .candle { animation: none; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -305,70 +350,95 @@ def predict_batch(clf, texts: list) -> list:
 # ─────────────────────────────────────────────────────────────────────────────
 #  UI COMPONENTS
 # ─────────────────────────────────────────────────────────────────────────────
-def render_bars(conf: dict):
-    for label, score in sorted(conf.items(), key=lambda x: -x[1]):
-        color = LABEL_COLOR[label]
-        pct   = score * 100
-        st.markdown(f"""
-          <div class="prob-row">
-            <div class="prob-head">
-              <span class="prob-name">{LABEL_ICON[label]} {label}</span>
-              <span class="prob-pct" style="color:{color};">{pct:.2f}%</span>
-            </div>
-            <div class="prob-track">
-              <div class="prob-fill" style="width:{pct:.2f}%;background:{color};"></div>
-            </div>
-          </div>
-        """, unsafe_allow_html=True)
+_ICON_PATHS = {
+    "trend_up":   '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    "trend_down": '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    "equal":      '<line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/>',
+    "target":     '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+}
 
-def render_token_bar(n: int, mx: int):
-    pct   = min(n / mx * 100, 100)
-    color = "#F38BA8" if pct > 85 else "#F9E2AF" if pct > 65 else "#89B4FA"
-    st.markdown(f"""
-      <div class="token-row">
-        <span>tokens</span>
-        <div class="token-track">
-          <div class="token-fill" style="width:{pct:.1f}%;background:{color};"></div>
-        </div>
-        <span style="color:{color};">{n} / {mx}</span>
-      </div>
-    """, unsafe_allow_html=True)
+def icon(name: str, size: int = 16, color: str = "currentColor", stroke: float = 2) -> str:
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+            f'stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            f'{_ICON_PATHS[name]}</svg>')
 
-def render_result(pred: str, conf: dict, n_tokens: int, ms: float):
-    color = LABEL_COLOR[pred]
-    bg    = LABEL_BG[pred]
-    icon  = LABEL_ICON[pred]
-    top   = conf[pred] * 100
-    st.markdown(f"""
-      <div class="card">
-        <div class="section-lbl">Prediction</div>
-        <div class="result-label" style="color:{color};">{icon} {pred.upper()}</div>
-        <span class="badge" style="background:{bg};color:{color};
-              border:1px solid {color}33;">{icon} {top:.2f}% confidence</span>
-        <hr>
-        <div class="section-lbl" style="margin-bottom:.85rem;">Score breakdown</div>
-      </div>
-    """, unsafe_allow_html=True)
-    render_bars(conf)
-    render_token_bar(n_tokens, MAX_LENGTH)
-    st.markdown(f'<div class="infer-ms">⚡ {ms:.1f} ms</div>', unsafe_allow_html=True)
+def html(markup: str):
+    """Render raw HTML. Lines are stripped so Markdown never reads indentation as a code block."""
+    st.markdown("\n".join(l.strip() for l in markup.splitlines() if l.strip()), unsafe_allow_html=True)
+
+def candles_svg(n: int = 17, w: int = 380, h: int = 230) -> str:
+    """Decorative candlestick chart from the poster (deterministic upward random walk)."""
+    seed, price, data = 11, 0.0, []
+    for _ in range(n):
+        seed = seed * 16807 % 2147483647; r1 = seed / 2147483647
+        seed = seed * 16807 % 2147483647; r2 = seed / 2147483647
+        seed = seed * 16807 % 2147483647; r3 = seed / 2147483647
+        o, c = price, price + (r1 - 0.32) * 10
+        data.append((o, c, max(o, c) + r2 * 4, min(o, c) - r3 * 4))
+        price = c
+    hi, lo = max(d[2] for d in data), min(d[3] for d in data)
+    y = lambda v: h - 6 - (v - lo) / (hi - lo) * (h - 12)
+    step = w / n
+    parts = []
+    for i, (o, c, top, bottom) in enumerate(data):
+        x = step * i + step / 2
+        color = "#1E8FA3" if c >= o else "#2D5E9E"
+        y0, y1 = y(max(o, c)), y(min(o, c))
+        parts.append(
+            f'<g class="candle" style="animation-delay:{i * 45}ms">'
+            f'<line x1="{x:.1f}" x2="{x:.1f}" y1="{y(top):.1f}" y2="{y(bottom):.1f}" stroke="{color}" stroke-width="1.5"/>'
+            f'<rect x="{x - step * .27:.1f}" y="{y0:.1f}" width="{step * .54:.1f}" height="{max(y1 - y0, 2):.1f}" rx="1.5" fill="{color}"/></g>'
+        )
+    return f'<svg class="candles" viewBox="0 0 {w} {h}" aria-hidden="true">{"".join(parts)}</svg>'
+
+def prob_rows(conf=None) -> str:
+    top = max(conf, key=conf.get) if conf else None
+    rows = []
+    for c in CLASSES:
+        p = conf.get(c, 0.0) if conf else 0.0
+        rows.append(
+            f'<div class="prob{" is-top" if c == top else ""}" style="--c:{LABEL_COLOR[c]}">'
+            f'<div class="prob-head"><span class="prob-name">{icon(LABEL_ICON[c], color=LABEL_COLOR[c])}{c}</span>'
+            f'<span class="prob-val">{f"{p * 100:.1f}%" if conf else "—"}</span></div>'
+            f'<div class="prob-track"><div class="prob-fill" style="width:{p * 100:.2f}%"></div></div></div>'
+        )
+    return "".join(rows)
+
+def render_result(pred=None, conf=None, n_tokens=None, ms=None):
+    if pred is None:
+        head = (f'<div class="result-head is-empty"><span class="result-icon">{icon("target", 30)}</span>'
+                f'<div><div class="result-label">—</div><div class="result-conf">Awaiting tweet</div></div></div>')
+        meta = ""
+    else:
+        head = (f'<div class="result-head" style="--c:{LABEL_COLOR[pred]}">'
+                f'<span class="result-icon">{icon(LABEL_ICON[pred], 34, stroke=2.2)}</span>'
+                f'<div><div class="result-label">{pred}</div>'
+                f'<div class="result-conf"><b>{conf[pred] * 100:.1f}%</b> confidence</div></div></div>')
+        fill = min(n_tokens / MAX_LENGTH * 100, 100)
+        meta = (f'<div class="meta"><div><span>Tokens</span><b>{n_tokens} / {MAX_LENGTH}</b>'
+                f'<div class="token-track"><div class="token-fill" style="width:{fill:.1f}%"></div></div></div>'
+                f'<div><span>Latency</span><b>{ms:.0f} ms</b></div></div>')
+    html(f'<div class="card"><div class="card-title">Prediction</div>{head}'
+         f'<div class="probs">{prob_rows(conf)}</div>{meta}</div>')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HERO
 # ─────────────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-  <div style="padding:2.2rem 0 1.2rem;">
-    <div class="eyebrow">◈ NLP · Financial Sentiment · Transformer</div>
-    <h1 class="hero-title">
-      <span class="b">Market</span> Sentiment<br><span class="g">Analyser</span>
-    </h1>
-    <div style="display:flex;justify-content:center;">
-      <span class="pill"><span class="dot"></span>{HF_MODEL_ID}</span>
-    </div>
-    <div class="hero-sub">Bearish · Bullish · Neutral · max_length={MAX_LENGTH} · CPU</div>
+html(f"""
+<div class="hero">
+  <div>
+    <div class="eyebrow">Financial tweet sentiment classifier</div>
+    <div class="hero-title" role="heading" aria-level="1"><span>Sentiment-Driven</span><span>Market Analysis</span></div>
   </div>
-""", unsafe_allow_html=True)
+  {candles_svg()}
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-value">{MACRO_F1:.3f}</div><div class="stat-label">Macro F1</div><div class="stat-sub">Validation set</div></div>
+  <div class="stat"><div class="stat-value">{ACCURACY * 100:.1f}%</div><div class="stat-label">Accuracy</div><div class="stat-sub">Validation set</div></div>
+  <div class="stat"><div class="stat-value">DistilBERT</div><div class="stat-label">Deployed model</div><div class="stat-sub">Fine-tuned transformer</div></div>
+</div>
+""")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -386,40 +456,40 @@ with st.spinner(f"Loading model from Hugging Face Hub… (first run ~30 s)"):
 # ─────────────────────────────────────────────────────────────────────────────
 #  TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["  Single Tweet  ", "  Batch Analysis  ", "  Model Info  "])
+tab1, tab2, tab3 = st.tabs([
+    ":material/tag: Single Tweet",
+    ":material/database: Batch Processing",
+    ":material/psychology: Model Info",
+])
+
+EXAMPLES = {
+    "Bullish": "$NVDA smashes earnings — revenue up 122%, beats all estimates 📈",
+    "Bearish": "Stocks tumble as Fed signals more rate hikes",
+    "Neutral": "Goldman Sachs maintains Q4 outlook with no revision to estimates",
+}
+
+def use_example(text: str):
+    st.session_state["single_ta"] = text
 
 
 # ════════ TAB 1 — Single tweet ════════════════════════════════════════════════
 with tab1:
-    st.markdown("<div style='height:.7rem'></div>", unsafe_allow_html=True)
     col_in, col_out = st.columns([1.1, 0.9], gap="large")
 
     with col_in:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-lbl">Enter financial tweet</div>', unsafe_allow_html=True)
-
-        # Example buttons BEFORE text_area (Streamlit session state rule)
-        st.markdown('<div class="section-lbl" style="margin-bottom:.4rem;">Quick examples</div>',
-                    unsafe_allow_html=True)
-        ec1, ec2, ec3 = st.columns(3)
-        _examples = {
-            "▲ Bullish": "$NVDA smashes earnings — revenue up 122%, beats all estimates 📈",
-            "▼ Bearish": "Fed signals further rate hikes; markets brace for downturn 📉",
-            "◆ Neutral": "Goldman Sachs maintains Q4 outlook with no revision to estimates",
-        }
-        for _col, (_lbl, _txt) in zip([ec1, ec2, ec3], _examples.items()):
-            with _col:
-                if st.button(_lbl, key=f"ex_{_lbl}", use_container_width=True):
-                    st.session_state["_val"] = _txt
-
-        tweet = st.text_area(
-            label="tweet", label_visibility="collapsed",
-            placeholder="Paste any financial tweet, headline, or market comment…",
-            height=135, key="single_ta",
-            value=st.session_state.get("_val", ""),
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-        go = st.button("Analyse  ›", type="primary", use_container_width=True)
+        with st.container(key="card_input"):
+            html('<div class="card-title">Tweet</div>')
+            tweet = st.text_area(
+                label="tweet", label_visibility="collapsed",
+                placeholder="Paste a financial tweet…",
+                height=150, key="single_ta",
+            )
+            html('<div class="examples-label">Examples</div>')
+            for _col, _lbl in zip(st.columns(3), CLASSES):
+                with _col:
+                    st.button(_lbl, key=f"ex_{_lbl}", icon=LABEL_MATERIAL[_lbl], help=EXAMPLES[_lbl],
+                              on_click=use_example, args=(EXAMPLES[_lbl],), width="stretch")
+            go = st.button("Analyse", type="primary", width="stretch")
 
     with col_out:
         if go and tweet.strip():
@@ -430,36 +500,27 @@ with tab1:
                 st.code(clean(tweet), language=None)
         elif go:
             st.warning("Please enter a tweet first.")
+            render_result()
         else:
-            st.markdown("""
-              <div class="card" style="text-align:center;padding:3rem 1.5rem;opacity:.35;">
-                <div style="font-size:2.5rem;margin-bottom:.6rem;">🧠</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:.76rem;color:#45475A;">
-                  Result will appear here
-                </div>
-              </div>
-            """, unsafe_allow_html=True)
+            render_result()
 
 
 # ════════ TAB 2 — Batch ═══════════════════════════════════════════════════════
 with tab2:
-    st.markdown("<div style='height:.7rem'></div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-lbl">One tweet per line</div>', unsafe_allow_html=True)
-    batch_txt = st.text_area(
-        label="batch", label_visibility="collapsed",
-        placeholder=(
-            "$TSLA reports record deliveries for Q2\n"
-            "Inflation data worse than expected; recession fears mount\n"
-            "Apple remains focused on long-term growth, Cook says\n"
-            "Oil prices drop sharply on OPEC output increase\n"
-            "Microsoft Azure revenues grow 28% in latest quarter"
-        ),
-        height=190, key="batch_ta",
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-    go_batch = st.button("Run Batch  ›", type="primary", key="batch_btn")
+    with st.container(key="card_batch"):
+        html('<div class="card-title">Tweets · one per line</div>')
+        batch_txt = st.text_area(
+            label="batch", label_visibility="collapsed",
+            placeholder=(
+                "$TSLA reports record deliveries for Q2\n"
+                "Inflation data worse than expected; recession fears mount\n"
+                "Apple remains focused on long-term growth, Cook says\n"
+                "Oil prices drop sharply on OPEC output increase\n"
+                "Microsoft Azure revenues grow 28% in latest quarter"
+            ),
+            height=190, key="batch_ta",
+        )
+        go_batch = st.button("Run Batch", type="primary", key="batch_btn")
 
     if go_batch:
         lines = [l.strip() for l in batch_txt.splitlines() if l.strip()]
@@ -473,135 +534,91 @@ with tab2:
 
             df     = pd.DataFrame({"Tweet": lines, "Sentiment": labels})
             counts = df["Sentiment"].value_counts()
-            bull   = counts.get("Bullish", 0)
-            bear   = counts.get("Bearish", 0)
-            neut   = counts.get("Neutral", 0)
             n      = len(df)
 
-            # Metrics
-            m1, m2, m3, m4, m5 = st.columns(5)
-            m1.metric("Total",      n)
-            m2.metric("▲ Bullish",  bull)
-            m3.metric("▼ Bearish",  bear)
-            m4.metric("◆ Neutral",  neut)
-            m5.metric("⚡ ms total", f"{total:.0f}")
+            # Summary tiles + stacked distribution bar
+            tiles = [f'<div class="tile" style="--c:#BDE9F4"><span class="tile-name">Total</span>'
+                     f'<span class="tile-value">{n}</span><span class="tile-sub">{total:.0f} ms</span></div>']
+            segs = []
+            for c in CLASSES:
+                k = int(counts.get(c, 0))
+                tiles.append(
+                    f'<div class="tile" style="--c:{LABEL_COLOR[c]}">'
+                    f'<span class="tile-name">{icon(LABEL_ICON[c], color=LABEL_COLOR[c])}{c}</span>'
+                    f'<span class="tile-value">{k}</span><span class="tile-sub">{k / n * 100:.1f}%</span></div>'
+                )
+                if k:
+                    segs.append(f'<div class="dist-seg" style="flex-grow:{k};background:{LABEL_COLOR[c]}" '
+                                f'title="{c}: {k} tweets ({k / n * 100:.1f}%)"></div>')
+            html(f'<div class="card"><div class="summary">{"".join(tiles)}</div>'
+                 f'<div class="dist">{"".join(segs)}</div></div>')
 
-            # Stacked distribution bar
-            bp = bull/n*100; rp = bear/n*100; np_ = neut/n*100
-            st.markdown(f"""
-              <div class="section-lbl" style="margin-top:.8rem;">Distribution</div>
-              <div class="dist-bar">
-                <div style="width:{bp:.1f}%;background:#A6E3A1;" title="Bullish {bp:.1f}%"></div>
-                <div style="width:{rp:.1f}%;background:#F38BA8;" title="Bearish {rp:.1f}%"></div>
-                <div style="width:{np_:.1f}%;background:#F9E2AF;" title="Neutral {np_:.1f}%"></div>
-              </div>
-              <div style="display:flex;gap:1.4rem;margin-bottom:.9rem;">
-                <span class="dist-lbl" style="color:#A6E3A1;">▲ {bp:.1f}%</span>
-                <span class="dist-lbl" style="color:#F38BA8;">▼ {rp:.1f}%</span>
-                <span class="dist-lbl" style="color:#F9E2AF;">◆ {np_:.1f}%</span>
-              </div>
-            """, unsafe_allow_html=True)
-
-            def _color(v):
-                return {"Bullish":"color:#A6E3A1;font-weight:700",
-                        "Bearish":"color:#F38BA8;font-weight:700",
-                        "Neutral":"color:#F9E2AF;font-weight:700"}.get(v,"")
-
+            view = df.assign(Sentiment=df["Sentiment"].map(lambda v: f"{LABEL_GLYPH[v]}  {v}"))
+            view.index = range(1, n + 1)
             st.dataframe(
-                df.style.map(_color, subset=["Sentiment"]),
-                use_container_width=True,
-                height=min(60 + n*38, 520),
+                view.style.map(lambda v: f"color:{LABEL_TEXT[v.split()[-1]]};font-weight:600", subset=["Sentiment"]),
+                width="stretch",
+                height=min((n + 1) * 35 + 3, 520),
             )
             st.download_button(
                 "Download CSV",
                 data=df.to_csv(index=False).encode(),
                 file_name="sentiment_results.csv",
                 mime="text/csv",
+                icon=":material/download:",
             )
 
 
 # ════════ TAB 3 — Model info ══════════════════════════════════════════════════
 with tab3:
-    st.markdown("<div style='height:.7rem'></div>", unsafe_allow_html=True)
     ca, cb = st.columns(2, gap="large")
 
     with ca:
-        st.markdown(f"""
-          <div class="card">
-            <div class="section-lbl">Model</div>
-            <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;
-                        font-size:1.35rem;color:#CDD6F4;margin-bottom:.5rem;">
-              DistilBERT-base-uncased
-            </div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;
-                        color:#585B70;line-height:1.7;margin-bottom:.9rem;">
-              Fully fine-tuned on Twitter Financial News Sentiment<br>
-              (Hugging Face: <span style="color:#89B4FA;">{HF_MODEL_ID}</span>)
-            </div>
-            <hr>
-            <div class="section-lbl">Label mapping</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:2;">
-              <span style="color:#45475A;">LABEL_0</span>
-              <span style="color:#313244;margin:0 .4rem;">→</span>
-              <span style="color:#F38BA8;font-weight:600;">Bearish ▼</span><br>
-              <span style="color:#45475A;">LABEL_1</span>
-              <span style="color:#313244;margin:0 .4rem;">→</span>
-              <span style="color:#A6E3A1;font-weight:600;">Bullish ▲</span><br>
-              <span style="color:#45475A;">LABEL_2</span>
-              <span style="color:#313244;margin:0 .4rem;">→</span>
-              <span style="color:#F9E2AF;font-weight:600;">Neutral ◆</span>
-            </div>
-            <hr>
-            <div class="section-lbl">Inference config</div>
-            <div style="margin-top:.4rem;">
-              <span class="chip">max_length=64</span>
-              <span class="chip">top_k=None</span>
-              <span class="chip">truncation=True</span>
-              <span class="chip">device=CPU</span>
-            </div>
+        label_items = "".join(
+            f'<li style="--c:{LABEL_COLOR[name]}"><span class="label-id">{idx}</span>'
+            f'<span class="label-name">{icon(LABEL_ICON[name], color=LABEL_COLOR[name])}{name}</span>'
+            f'<span class="muted">{LABEL_DESC[name]}</span></li>'
+            for idx, name in ID2LABEL.items()
+        )
+        html(f"""
+        <div class="card">
+          <div class="card-title">Model</div>
+          <div class="model-name">DistilBERT-base-uncased</div>
+          <a class="hub-link" href="https://huggingface.co/{HF_MODEL_ID}" target="_blank">{HF_MODEL_ID} ↗</a>
+          <div class="kv">
+            <div><span>Max tokens</span><b>{MAX_LENGTH}</b></div>
+            <div><span>Device</span><b>CPU</b></div>
+            <div><span>Scores</span><b>All 3 classes</b></div>
+            <div><span>Truncation</span><b>On</b></div>
           </div>
-        """, unsafe_allow_html=True)
+          <div class="card-title sub">Labels</div>
+          <ul class="labels">{label_items}</ul>
+        </div>
+        """)
 
     with cb:
-        st.markdown("""
-          <div class="card">
-            <div class="section-lbl">Preprocessing — clean_basic()</div>
-        """, unsafe_allow_html=True)
-        for step in [
-            "Strip URLs & @mentions",
-            "Expand #hashtags → bare word",
-            "Map emojis → semantic tokens",
-            "Lowercase everything",
-            "Normalise numbers → &lt;NUM&gt;",
-            "Collapse repeated punctuation",
-            "Collapse repeated characters",
-            "Remove non-alphanumeric chars",
-        ]:
-            st.markdown(
-                f'<div style="font-family:\'JetBrains Mono\',monospace;font-size:.76rem;'
-                f'color:#45475A;padding:.22rem 0;border-bottom:1px solid rgba(255,255,255,.04);">'
-                f'<span style="color:#89B4FA;margin-right:.5rem;">›</span>{step}</div>',
-                unsafe_allow_html=True
-            )
-        st.markdown("""
-            <hr>
-            <div class="section-lbl">GitHub repo structure</div>
-        """, unsafe_allow_html=True)
-        for fname, note in [
-            ("app.py",            "This file"),
-            ("requirements.txt",  "Dependencies"),
-        ]:
-            st.markdown(
-                f'<div style="font-family:\'JetBrains Mono\',monospace;font-size:.74rem;'
-                f'color:#45475A;padding:.26rem 0;border-bottom:1px solid rgba(255,255,255,.04);">'
-                f'<span style="color:#A6E3A1;margin-right:.5rem;">✓</span>'
-                f'<span style="color:#CDD6F4;">{fname}</span>'
-                f'<span style="color:#313244;margin-left:.5rem;">— {note}</span></div>',
-                unsafe_allow_html=True
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown(
-    f'<div class="footer">{HF_MODEL_ID} · Twitter Financial News Sentiment · Bearish / Bullish / Neutral</div>',
-    unsafe_allow_html=True
-)
+        steps = "".join(
+            f'<li><span class="step-n">{i}</span>{step}</li>'
+            for i, step in enumerate([
+                "Strip URLs &amp; @mentions",
+                "Expand #hashtags → bare word",
+                "Map emojis → semantic tokens",
+                "Lowercase everything",
+                "Normalise numbers → &lt;NUM&gt;",
+                "Collapse repeated punctuation",
+                "Collapse repeated characters",
+                "Remove non-alphanumeric chars",
+            ], start=1)
+        )
+        tech = "".join(f"<span>{t}</span>" for t in
+                       ["Python", "Streamlit", "DistilBERT", "FinBERT", "TF-IDF", "Scikit-Learn"])
+        html(f"""
+        <div class="card">
+          <div class="card-title">Preprocessing</div>
+          <ul class="steps">{steps}</ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Technology</div>
+          <div class="stack">{tech}</div>
+        </div>
+        """)
