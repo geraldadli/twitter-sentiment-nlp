@@ -294,33 +294,57 @@ _IDLE_OVERLAY_JS = Template("""
     "  margin-top: 14px; text-align: center; color: #A8BBD2;",
     "  font: 500 .9rem/1.4 Inter, sans-serif;",
     "}",
-    "#__demo_idle_overlay__ .demo-close {",
-    "  position: absolute; top: -46px; right: 0; width: 36px; height: 36px;",
-    "  border-radius: 8px; background: #152845; border: 1px solid #2E4E7A; color: #E8F3FA;",
-    "  font-size: 18px; line-height: 1; cursor: pointer;",
+    "#__demo_idle_overlay__ .demo-controls {",
+    "  position: absolute; top: -46px; right: 0; display: flex; gap: 8px;",
+    "}",
+    "#__demo_idle_overlay__ .demo-btn {",
+    "  width: 36px; height: 36px; border-radius: 8px;",
+    "  background: #152845; border: 1px solid #2E4E7A; color: #E8F3FA;",
+    "  font-size: 18px; line-height: 1; cursor: pointer; padding: 0;",
     "  display: flex; align-items: center; justify-content: center;",
     "}",
-    "#__demo_idle_overlay__ .demo-close:hover { background: #1B3254; }",
-  ].join("\n");
+    "#__demo_idle_overlay__ .demo-btn:hover { background: #1B3254; }",
+    "#__demo_idle_overlay__ .demo-btn svg { width: 18px; height: 18px; }",
+    "#__demo_idle_overlay__ video:fullscreen { object-fit: contain; border-radius: 0; border: 0; }",
+  ].join("\\n");
   doc.head.appendChild(style);
+
+  const ICON_EXPAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/>' +
+    '<path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/>' +
+    '<path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  const ICON_COMPRESS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/>' +
+    '<path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/>' +
+    '<path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
 
   const overlay = doc.createElement("div");
   overlay.id = OVERLAY_ID;
   overlay.innerHTML = `
     <div class="demo-shell">
-      <button class="demo-close" type="button" aria-label="Close demo">&#10005;</button>
+      <div class="demo-controls">
+        <button class="demo-btn demo-fullscreen" type="button" aria-label="Toggle fullscreen"></button>
+        <button class="demo-btn demo-close" type="button" aria-label="Close demo">&#10005;</button>
+      </div>
       <video playsinline muted loop controls></video>
       <div class="demo-caption">Demo video — move your mouse or press any key to dismiss</div>
     </div>
   `;
   doc.body.appendChild(overlay);
 
-  const video    = overlay.querySelector("video");
-  const closeBtn = overlay.querySelector(".demo-close");
+  const video     = overlay.querySelector("video");
+  const closeBtn  = overlay.querySelector(".demo-close");
+  const fsBtn     = overlay.querySelector(".demo-fullscreen");
   video.src = videoUrl;
+  fsBtn.innerHTML = ICON_EXPAND;
 
-  let idleTimer = null;
-  let visible   = false;
+  // Pressing a control button must not count as "activity": the page-level
+  // mousedown listener would otherwise dismiss the overlay before the click lands.
+  overlay.querySelector(".demo-controls").addEventListener("mousedown", (e) => e.stopPropagation());
+
+  let idleTimer    = null;
+  let visible      = false;
+  let inFullscreen = false;
 
   function showOverlay() {
     if (visible) return;
@@ -338,15 +362,38 @@ _IDLE_OVERLAY_JS = Template("""
   }
 
   function resetTimer() {
+    if (inFullscreen) return;  // viewer chose to watch; don't pause on mouse moves
     if (visible) hideOverlay();
     clearTimeout(idleTimer);
     idleTimer = setTimeout(showOverlay, $idleMs);
   }
 
+  function setFullscreenState(on) {
+    inFullscreen = on;
+    fsBtn.innerHTML = on ? ICON_COMPRESS : ICON_EXPAND;
+    if (!on) resetTimer();  // leaving fullscreen closes the demo
+  }
+
+  function toggleFullscreen() {
+    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
+    } else {
+      const req = video.requestFullscreen || video.webkitRequestFullscreen || video.webkitEnterFullscreen;
+      if (req) req.call(video);
+    }
+  }
+
+  const onFullscreenChange = () => setFullscreenState(!!(doc.fullscreenElement || doc.webkitFullscreenElement));
+  doc.addEventListener("fullscreenchange", onFullscreenChange);
+  doc.addEventListener("webkitfullscreenchange", onFullscreenChange);
+  video.addEventListener("webkitbeginfullscreen", () => setFullscreenState(true));   // iOS Safari
+  video.addEventListener("webkitendfullscreen", () => setFullscreenState(false));
+
   ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"].forEach((evt) =>
     doc.addEventListener(evt, resetTimer, { passive: true })
   );
   closeBtn.addEventListener("click", (e) => { e.stopPropagation(); hideOverlay(); resetTimer(); });
+  fsBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleFullscreen(); });
 
   resetTimer();
 })();
