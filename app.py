@@ -63,12 +63,26 @@ st.markdown("""
   html, body, [data-testid="stAppViewContainer"] {
     background: var(--bg); color: var(--ink); font-family: var(--body);
   }
+  /* Market backdrop: bullish glow top-left, neutral top-right, bearish bottom-right over a faint chart grid */
   [data-testid="stAppViewContainer"] {
-    background: radial-gradient(ellipse 55% 45% at 85% 0%, rgba(69,210,230,.07), transparent 70%), var(--bg);
+    background:
+      radial-gradient(ellipse 45% 40% at 0% 0%, rgba(29,171,143,.16), transparent 70%),
+      radial-gradient(ellipse 35% 30% at 100% 0%, rgba(199,133,17,.11), transparent 70%),
+      radial-gradient(ellipse 45% 40% at 100% 100%, rgba(210,58,63,.15), transparent 70%),
+      linear-gradient(rgba(69,210,230,.045) 1px, transparent 1px) 0 0 / 56px 56px,
+      linear-gradient(90deg, rgba(69,210,230,.045) 1px, transparent 1px) 0 0 / 56px 56px,
+      var(--bg);
   }
   [data-testid="stHeader"] { background: transparent; }
   [data-testid="stMainBlockContainer"], .block-container {
-    max-width: 1180px; padding-top: 2.2rem; padding-bottom: 4rem;
+    max-width: 1560px; padding-top: 2.2rem; padding-bottom: 4rem;
+  }
+
+  /* ── Workspace: demo video left, functionality right ── */
+  @media (min-width: 761px) {
+    [data-testid="stColumn"]:has(.st-key-card_demo) {
+      position: sticky; top: 4rem; align-self: flex-start;
+    }
   }
 
   /* ── Hero ── */
@@ -99,23 +113,23 @@ st.markdown("""
   .stat-sub   { margin-top: 4px; font-size: .92rem; color: var(--ink-3); }
 
   /* ── Tabs as poster "key feature" cards ── */
-  [data-testid="stTabs"] [role="tablist"] { gap: 16px; border: 0; box-shadow: none; }
+  [data-testid="stTabs"] [role="tablist"] { gap: 12px; border: 0; box-shadow: none; }
   [data-testid="stTab"] {
     flex: 1; height: auto; justify-content: flex-start;
-    padding: 14px 18px; margin: 0; background: var(--surface);
+    padding: 12px 14px; margin: 0; background: var(--surface);
     border-top: 3px solid var(--line-2); border-radius: 2px 2px 8px 8px;
     transition: background .15s, border-color .15s;
   }
   [data-testid="stTab"]:hover { background: var(--surface-2); }
   [data-testid="stTab"][aria-selected="true"] { background: var(--surface-2); border-top-color: var(--title); }
   [data-testid="stTab"] p {
-    display: flex; align-items: center; gap: 14px;
-    font: 700 1.1rem/1.25 var(--display) !important; color: var(--ink-2);
+    display: flex; align-items: center; gap: 12px; white-space: normal; text-align: left;
+    font: 700 1rem/1.25 var(--display) !important; color: var(--ink-2);
   }
   [data-testid="stTab"][aria-selected="true"] p { color: var(--ink); }
   [data-testid="stTab"] span[role="img"] {
-    display: grid !important; place-items: center; width: 48px; height: 48px; flex: none;
-    background: var(--tile); border-radius: 4px; color: var(--cyan); font-size: 26px; line-height: 1;
+    display: grid !important; place-items: center; width: 42px; height: 42px; flex: none;
+    background: var(--tile); border-radius: 4px; color: var(--cyan); font-size: 24px; line-height: 1;
   }
   [data-testid="stTabs"] .react-aria-SelectionIndicator { display: none; }
   [data-testid="stTabs"] [role="tabpanel"] { padding-top: 20px; }
@@ -125,7 +139,6 @@ st.markdown("""
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px;
   }
   .card { margin-bottom: 16px; }
-  .st-key-card_demo { margin-bottom: 32px; }
   .st-key-card_demo video { border-radius: 6px; background: #000; }
   .card-title {
     font: 700 .8rem/1.2 var(--display); letter-spacing: .16em;
@@ -599,20 +612,23 @@ html(f"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  DEMO VIDEO
+#  WORKSPACE — demo video on the left, functionality on the right
 # ─────────────────────────────────────────────────────────────────────────────
 DEMO_VIDEO_FILE = Path(__file__).parent / "static" / "demo.mp4"
 
 if DEMO_VIDEO_FILE.exists():
-    with st.container(key="card_demo"):
+    col_demo, col_main = st.columns([1, 1], gap="large")
+    with col_demo, st.container(key="card_demo"):
         html('<div class="card-title">Demo</div>')
-        st.video(str(DEMO_VIDEO_FILE))
+        st.video(str(DEMO_VIDEO_FILE), autoplay=True, muted=True, loop=True)
+else:
+    col_main = st.container()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  LOAD MODEL
 # ─────────────────────────────────────────────────────────────────────────────
-with st.spinner(f"Loading model from Hugging Face Hub… (first run ~30 s)"):
+with col_main, st.spinner(f"Loading model from Hugging Face Hub… (first run ~30 s)"):
     try:
         clf       = load_model()
         tokenizer = load_tokenizer()
@@ -624,11 +640,12 @@ with st.spinner(f"Loading model from Hugging Face Hub… (first run ~30 s)"):
 # ─────────────────────────────────────────────────────────────────────────────
 #  TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs([
-    ":material/tag: Single Tweet",
-    ":material/database: Batch Processing",
-    ":material/psychology: Model Info",
-])
+with col_main:
+    tab1, tab2, tab3 = st.tabs([
+        ":material/tag: Single Tweet",
+        ":material/database: Batch Processing",
+        ":material/psychology: Model Info",
+    ])
 
 EXAMPLES = {
     "Bullish": "$NVDA smashes earnings — revenue up 122%, beats all estimates 📈",
@@ -642,35 +659,31 @@ def use_example(text: str):
 
 # ════════ TAB 1 — Single tweet ════════════════════════════════════════════════
 with tab1:
-    col_in, col_out = st.columns([1.1, 0.9], gap="large")
+    with st.container(key="card_input"):
+        html('<div class="card-title">Tweet</div>')
+        tweet = st.text_area(
+            label="tweet", label_visibility="collapsed",
+            placeholder="Paste a financial tweet…",
+            height=150, key="single_ta",
+        )
+        html('<div class="examples-label">Examples</div>')
+        for _col, _lbl in zip(st.columns(3), CLASSES):
+            with _col:
+                st.button(_lbl, key=f"ex_{_lbl}", icon=LABEL_MATERIAL[_lbl], help=EXAMPLES[_lbl],
+                          on_click=use_example, args=(EXAMPLES[_lbl],), width="stretch")
+        go = st.button("Analyse", type="primary", width="stretch")
 
-    with col_in:
-        with st.container(key="card_input"):
-            html('<div class="card-title">Tweet</div>')
-            tweet = st.text_area(
-                label="tweet", label_visibility="collapsed",
-                placeholder="Paste a financial tweet…",
-                height=150, key="single_ta",
-            )
-            html('<div class="examples-label">Examples</div>')
-            for _col, _lbl in zip(st.columns(3), CLASSES):
-                with _col:
-                    st.button(_lbl, key=f"ex_{_lbl}", icon=LABEL_MATERIAL[_lbl], help=EXAMPLES[_lbl],
-                              on_click=use_example, args=(EXAMPLES[_lbl],), width="stretch")
-            go = st.button("Analyse", type="primary", width="stretch")
-
-    with col_out:
-        if go and tweet.strip():
-            with st.spinner("Running inference…"):
-                pred, conf, n_tok, ms = predict_one(clf, tokenizer, tweet)
-            render_result(pred, conf, n_tok, ms)
-            with st.expander("Preprocessed text"):
-                st.code(clean(tweet), language=None)
-        elif go:
-            st.warning("Please enter a tweet first.")
-            render_result()
-        else:
-            render_result()
+    if go and tweet.strip():
+        with st.spinner("Running inference…"):
+            pred, conf, n_tok, ms = predict_one(clf, tokenizer, tweet)
+        render_result(pred, conf, n_tok, ms)
+        with st.expander("Preprocessed text"):
+            st.code(clean(tweet), language=None)
+    elif go:
+        st.warning("Please enter a tweet first.")
+        render_result()
+    else:
+        render_result()
 
 
 # ════════ TAB 2 — Batch ═══════════════════════════════════════════════════════
