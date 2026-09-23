@@ -5,9 +5,12 @@ Model: geraldadli/twitter-sentiment-nlp (Hugging Face Hub)
 
 import re
 import time
+from string import Template
+
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  CONFIG
@@ -253,6 +256,110 @@ st.markdown("""
   @media (prefers-reduced-motion: reduce) { .candle { animation: none; } }
 </style>
 """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  IDLE DEMO VIDEO
+#  Drop the video file at static/demo.mp4 (requires [server] enableStaticServing
+#  = true in .streamlit/config.toml, already set). No code changes needed once
+#  the file is in place — if it's missing, the overlay simply won't find a video.
+# ─────────────────────────────────────────────────────────────────────────────
+IDLE_MS         = 30_000
+IDLE_VIDEO_PATH = "app/static/demo.mp4"
+
+_IDLE_OVERLAY_JS = Template("""
+<script>
+(function () {
+  const doc = window.parent.document;
+  const OVERLAY_ID = "__demo_idle_overlay__";
+  if (doc.getElementById(OVERLAY_ID)) return;  // already wired up for this session
+
+  const videoUrl = new URL("$videoPath", window.parent.location.href).href;
+
+  const style = doc.createElement("style");
+  style.textContent = [
+    "#__demo_idle_overlay__ {",
+    "  position: fixed; inset: 0; z-index: 999999;",
+    "  background: rgba(11, 23, 44, .92);",
+    "  display: flex; align-items: center; justify-content: center;",
+    "  opacity: 0; pointer-events: none; transition: opacity .4s ease;",
+    "}",
+    "#__demo_idle_overlay__.is-visible { opacity: 1; pointer-events: auto; }",
+    "#__demo_idle_overlay__ .demo-shell { position: relative; width: min(90vw, 1100px); }",
+    "#__demo_idle_overlay__ video {",
+    "  display: block; width: 100%; max-height: 82vh; border-radius: 12px;",
+    "  box-shadow: 0 20px 60px rgba(0,0,0,.5); border: 1px solid #243F66; background: #000;",
+    "}",
+    "#__demo_idle_overlay__ .demo-caption {",
+    "  margin-top: 14px; text-align: center; color: #A8BBD2;",
+    "  font: 500 .9rem/1.4 Inter, sans-serif;",
+    "}",
+    "#__demo_idle_overlay__ .demo-close {",
+    "  position: absolute; top: -46px; right: 0; width: 36px; height: 36px;",
+    "  border-radius: 8px; background: #152845; border: 1px solid #2E4E7A; color: #E8F3FA;",
+    "  font-size: 18px; line-height: 1; cursor: pointer;",
+    "  display: flex; align-items: center; justify-content: center;",
+    "}",
+    "#__demo_idle_overlay__ .demo-close:hover { background: #1B3254; }",
+  ].join("\n");
+  doc.head.appendChild(style);
+
+  const overlay = doc.createElement("div");
+  overlay.id = OVERLAY_ID;
+  overlay.innerHTML = `
+    <div class="demo-shell">
+      <button class="demo-close" type="button" aria-label="Close demo">&#10005;</button>
+      <video playsinline muted loop controls></video>
+      <div class="demo-caption">Demo video — move your mouse or press any key to dismiss</div>
+    </div>
+  `;
+  doc.body.appendChild(overlay);
+
+  const video    = overlay.querySelector("video");
+  const closeBtn = overlay.querySelector(".demo-close");
+  video.src = videoUrl;
+
+  let idleTimer = null;
+  let visible   = false;
+
+  function showOverlay() {
+    if (visible) return;
+    visible = true;
+    overlay.classList.add("is-visible");
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  }
+
+  function hideOverlay() {
+    if (!visible) return;
+    visible = false;
+    overlay.classList.remove("is-visible");
+    video.pause();
+  }
+
+  function resetTimer() {
+    if (visible) hideOverlay();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(showOverlay, $idleMs);
+  }
+
+  ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"].forEach((evt) =>
+    doc.addEventListener(evt, resetTimer, { passive: true })
+  );
+  closeBtn.addEventListener("click", (e) => { e.stopPropagation(); hideOverlay(); resetTimer(); });
+
+  resetTimer();
+})();
+</script>
+""")
+
+def render_idle_demo_video():
+    components.html(
+        _IDLE_OVERLAY_JS.substitute(videoPath=IDLE_VIDEO_PATH, idleMs=IDLE_MS),
+        height=0, width=0,
+    )
+
+render_idle_demo_video()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
