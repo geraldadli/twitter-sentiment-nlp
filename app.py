@@ -5,6 +5,7 @@ Model: geraldadli/twitter-sentiment-nlp (Hugging Face Hub)
 
 import re
 import time
+from pathlib import Path
 from string import Template
 
 import numpy as np
@@ -120,10 +121,12 @@ st.markdown("""
   [data-testid="stTabs"] [role="tabpanel"] { padding-top: 20px; }
 
   /* ── Cards ── */
-  .card, .st-key-card_input, .st-key-card_batch {
+  .card, .st-key-card_input, .st-key-card_batch, .st-key-card_demo {
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px;
   }
   .card { margin-bottom: 16px; }
+  .st-key-card_demo { margin-bottom: 32px; }
+  .st-key-card_demo video { border-radius: 6px; background: #000; }
   .card-title {
     font: 700 .8rem/1.2 var(--display); letter-spacing: .16em;
     text-transform: uppercase; color: var(--teal); margin-bottom: 14px;
@@ -593,6 +596,17 @@ html(f"""
   <div class="stat"><div class="stat-value">DistilBERT</div><div class="stat-label">Deployed model</div><div class="stat-sub">Fine-tuned transformer</div></div>
 </div>
 """)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  DEMO VIDEO
+# ─────────────────────────────────────────────────────────────────────────────
+DEMO_VIDEO_FILE = Path(__file__).parent / "static" / "demo.mp4"
+
+if DEMO_VIDEO_FILE.exists():
+    with st.container(key="card_demo"):
+        html('<div class="card-title">Demo</div>')
+        st.video(str(DEMO_VIDEO_FILE))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
