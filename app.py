@@ -620,7 +620,8 @@ if DEMO_VIDEO_FILE.exists():
     col_demo, col_main = st.columns([1, 1], gap="large")
     with col_demo, st.container(key="card_demo"):
         html('<div class="card-title">Demo</div>')
-        st.video(str(DEMO_VIDEO_FILE), autoplay=True, muted=True, loop=True)
+        loop_video = st.toggle("Loop video", value=True)
+        st.video(str(DEMO_VIDEO_FILE), autoplay=True, muted=True, loop=loop_video)
 else:
     col_main = st.container()
 
